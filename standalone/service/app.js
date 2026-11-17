@@ -10,6 +10,7 @@ const URL = require('url');
 const path = require('path');
 const fs = require('fs');
 const injector = require('./utils/injector.js');
+const { downloadUserScript } = require('./utils/userScript.js');
 const { EARLY_HOOK } = require('./utils/earlyAdblock.js');
 
 app.use((req, res, next) => {
@@ -34,6 +35,19 @@ app.get('/tizentube/debugger', (req, res) => {
     // A request while a launch is in progress is ignored.
     injector.requestDebugLaunch(args);
     res.end();
+});
+
+// Proxy path: the page (served from localhost:8100) loads the userscript from
+// here; the service fetches it from the LAN server (utils/userScript.js).
+app.get('/tizentube/userScript.js', (req, res) => {
+    downloadUserScript().then(text => {
+        res.setHeader('Content-Type', 'application/javascript');
+        res.setHeader('Cache-Control', 'no-store');
+        res.send(text);
+    }).catch(err => {
+        if (typeof global.tizentubeReportError === 'function') global.tizentubeReportError(err, 'userScript download (proxy path)');
+        res.status(502).send('');
+    });
 });
 
 app.all('*', (req, res) => {
@@ -144,7 +158,7 @@ app.all('*', (req, res) => {
                             text = earlyHook + text;
                         }
                         // Insert the userscript for TizenTube
-                        text += `<script src="https://cdn.jsdelivr.net/npm/@foxreis/tizentube/dist/userScript.js?ver=${Date.now()}"></script>`;
+                        text += `<script src="/tizentube/userScript.js"></script>`;
                     }
 
                     const proxyPrefix = `http://localhost:${PORT}/cors-bypass/`;

@@ -4,6 +4,7 @@ const adbhost = require('adbhost');
 const CDP = require('chrome-remote-interface');
 const fetch = require('node-fetch');
 const { documentStartScript } = require('./earlyAdblock.js');
+const { USERSCRIPT_URL, downloadUserScript } = require('./userScript.js');
 
 
 var isConnecting = false;
@@ -14,8 +15,6 @@ const MAX_CDP_ATTEMPTS = 15;
 const CDP_RETRY_MS = 750;
 // How long to wait for the debug port of the relaunched app to open.
 const MAX_PORT_WAIT_MS = 30000;
-
-const USERSCRIPT_URL = 'https://cdn.jsdelivr.net/npm/@foxreis/tizentube/dist/userScript.js';
 
 // State of the current debug launch. Only one runs at a time.
 //
@@ -49,13 +48,6 @@ function finishLaunch(id, err, stage) {
     launch.endSdbSession();
     isConnecting = false;
     if (err) reportError(err, stage);
-}
-
-function downloadUserScript() {
-    return fetch(USERSCRIPT_URL).then(res => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.text();
-    });
 }
 
 function evaluateOnEveryContext(client, modFile) {
@@ -146,7 +138,7 @@ function attachDebugger(host, port, args, attempts) {
                 reportError(err, `userScript download from ${USERSCRIPT_URL}`);
                 navigate();
                 client.on('Runtime.executionContextCreated', m => {
-                    client.Runtime.evaluate({ expression: 'alert("Failed to request to JSDelivr CDN.")', contextId: m.context.id });
+                    client.Runtime.evaluate({ expression: 'alert("TizenTube: could not load the userscript from " + ' + JSON.stringify(JSON.stringify(USERSCRIPT_URL)) + ')', contextId: m.context.id });
                 });
             });
         }).on('error', err => retryAttach(host, port, args, attempts, err));
